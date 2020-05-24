@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
+	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 
@@ -16,29 +19,44 @@ import (
 var (
 	width  int
 	height int
-	port   int
+)
+
+const (
+	appName = "deepl-translator-linux"
 )
 
 func init() {
 	flag.IntVar(&width, "w", 800, "window width")
 	flag.IntVar(&height, "h", 600, "window height")
-	flag.IntVar(&port, "p", 9331, "listen port(for single instance)")
 	flag.Parse()
 }
 
 func main() {
-	address := fmt.Sprintf(":%d", port)
+	tryStart := 0
+	address := filepath.Join(os.TempDir(), fmt.Sprintf("%s.sock", appName))
+	log.Printf("socket file: <%s>\n", address)
 
-	l, err := net.Listen("tcp4", address)
+start:
+	if tryStart > 1 {
+		log.Fatal("tried too many times")
+		return
+	}
+
+	l, err := net.Listen("unix", address)
 	if err != nil {
 		if errors.Is(err, syscall.EADDRINUSE) {
-			tcpAddr, err := net.ResolveTCPAddr("tcp", address)
+			unixAddr, err := net.ResolveUnixAddr("unix", address)
 			if err != nil {
 				log.Fatal(err)
 			}
 
-			conn, err := net.DialTCP("tcp4", nil, tcpAddr)
+			conn, err := net.DialUnix("unix", nil, unixAddr)
 			if err != nil {
+				if errors.Is(err, syscall.ECONNREFUSED) {
+					syscall.Unlink(address) // SIGKILL and SIGSTOP may not be caught
+					tryStart += 1
+					goto start
+				}
 				log.Fatal(err)
 			}
 			defer conn.Close()
@@ -47,9 +65,25 @@ func main() {
 		log.Fatal(err)
 	}
 	defer l.Close()
+	defer syscall.Unlink(address)
 
 	w := webview.New(true)
 	defer w.Destroy()
+
+	sc := make(chan os.Signal, 1)
+	signal.Notify(sc,
+		syscall.SIGINT,
+		syscall.SIGABRT,
+	) // SIGKILL and SIGSTOP may not be caught
+
+	go func() {
+		for {
+			sig := <-sc
+			log.Printf("got signal %s\n", sig)
+			syscall.Unlink(address)
+			os.Exit(0)
+		}
+	}()
 
 	go func() {
 		for {
