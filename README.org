@@ -1,0 +1,40 @@
+* About
+  A client for [[https://www.deepl.com/translator][deepl]] in Linux, using [[https://github.com/zserge/webview][webview]].
+
+  Tested under ubuntu 20.04 only.
+
+* How to use
+
+** install dependencies
+
+   #+BEGIN_SRC sh
+     sudo apt install libwebkit2gtk-4.0-dev xsel xdotool
+   #+END_SRC
+
++ xsel
+  clipboard needs it
+
++ xdotool
+  active this app when do translating work in other apps
+
+** build
+   #+BEGIN_SRC sh
+     cd /path/to/someDir
+     git clone https://github.com/kumakichi/Deepl-linux.git
+     cd Deepl-linux
+     make
+   #+END_SRC
+
+** add system shortcut
+
+   in ubuntu
+
+   *settings* => *keyboard shortcut* => *Add Custom Shortcut*
+
+   add this command: */path/to/someDir/Deepl-linux/loader.sh*
+   
+   I set this command with shortcut *Ctrl-Alt-D*
+
+** use it
+
+   select text in any application, press *Ctrl+c* to copy selected content into clipboard, then press the shortcut you just defined for *loader.sh*, here I press *Ctrl-Alt-D*
