@@ -3,6 +3,8 @@
 
   Tested under ubuntu 20.04 only.
 
+  [[./demo.png]]
+
 * How to use
 
 ** install dependencies
@@ -23,6 +25,14 @@
      git clone https://github.com/kumakichi/Deepl-linux.git
      cd Deepl-linux
      make
+   #+END_SRC
+
+** modify loader.sh if you need to
+
+   #+BEGIN_SRC sh
+     WIDTH=800 # window width
+     HEIGHT=600 # window height
+     LISTEN_PORT=9331 # app listen port, for single instance limit
    #+END_SRC
 
 ** add system shortcut
