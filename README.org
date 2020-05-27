@@ -5,12 +5,6 @@
 
   [[./demo.png]]
 
-* Known issue
-
-  You need to start the program first, wait for all the page elements to load, after that, the program will work properly.
-
-  That is, the first time you run the program, you need to press the shortcut key twice.The first time is to start the program, after the page loaded, then press the shortcut again to trigger the translation action.
-
 * How to use
 
 ** install dependencies

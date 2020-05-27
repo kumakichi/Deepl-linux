@@ -4,6 +4,8 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/atotto/clipboard"
+	"github.com/zserge/webview"
 	"log"
 	"net"
 	"os"
@@ -11,9 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
-
-	"github.com/atotto/clipboard"
-	"github.com/zserge/webview"
+	"time"
 )
 
 var (
@@ -22,7 +22,8 @@ var (
 )
 
 const (
-	appName = "deepl-translator-linux"
+	appName  = "deepl-translator-linux"
+	selector = "document.getElementsByClassName('lmt__source_textarea')[0]"
 )
 
 func init() {
@@ -32,14 +33,101 @@ func init() {
 }
 
 func main() {
-	tryStart := 0
 	address := filepath.Join(os.TempDir(), fmt.Sprintf("%s.sock", appName))
 	log.Printf("socket file: <%s>\n", address)
+
+	l := translateListener(address)
+	defer l.Close()
+	defer syscall.Unlink(address)
+
+	go signalHandle(address)
+
+	w := webview.New(true)
+	defer w.Destroy()
+
+	go translateWorker(w, l)
+
+	w.SetTitle("Deepl-linux")
+	w.SetSize(width, height, webview.HintNone)
+	w.Navigate("https://www.deepl.com/translator")
+	w.Eval(inputText)
+
+	go startupHandler(w) // TODO: better way to process this, like DOMContentLoaded
+
+	w.Run()
+}
+
+func startupHandler(w webview.WebView) {
+	for i := 0; i < 8; i++ {
+		time.Sleep(time.Second * 2)
+		cbContent, err := getClipboard()
+		if err != nil || strings.TrimSpace(cbContent) == "" {
+			log.Printf("[err] clipboard readall fail: %+v\n", err)
+			continue
+		}
+		w.Dispatch(func() {
+			w.Eval(`processStartup(` + selector + `,"` + cbContent + `")`)
+		})
+	}
+}
+
+var inputText = `const inputValue = function(dom, st) {
+    var evt = new InputEvent('input', {
+        inputType: 'insertText',
+        data: st,
+        dataTransfer: null,
+        isComposing: false
+    });
+    dom.value = st;
+    dom.dispatchEvent(evt);
+};
+
+const processStartup = function(dom, msg) {
+    if (dom.value != "") {
+        return;
+    }
+
+    inputValue(dom, msg);
+};`
+
+func getClipboard() (string, error) {
+	clipboardContent, err := clipboard.ReadAll()
+	if err != nil {
+		return "", err
+	}
+	log.Printf("got clipboard text: [%s]\n", clipboardContent)
+
+	cbContent := strings.Replace(clipboardContent, "\n", "\\n", -1)
+	cbContent = strings.Replace(cbContent, "\"", "\\\"", -1)
+	return cbContent, nil
+}
+
+func translateWorker(w webview.WebView, l net.Listener) {
+	for {
+		conn, err := l.Accept()
+		if err != nil {
+			log.Printf("accept error %+v", err)
+		}
+		conn.Close()
+
+		cbContent, err := getClipboard()
+		if err != nil {
+			log.Printf("[err] clipboard readall fail: %+v\n", err)
+			continue
+		}
+
+		w.Dispatch(func() {
+			w.Eval(`inputValue(` + selector + `,"` + cbContent + `")`)
+		})
+	}
+}
+
+func translateListener(address string) net.Listener {
+	tryStart := 0
 
 start:
 	if tryStart > 1 {
 		log.Fatal("tried too many times")
-		return
 	}
 
 	l, err := net.Listen("unix", address)
@@ -60,16 +148,15 @@ start:
 				log.Fatal(err)
 			}
 			defer conn.Close()
-			return
+			return nil
 		}
 		log.Fatal(err)
 	}
-	defer l.Close()
-	defer syscall.Unlink(address)
 
-	w := webview.New(true)
-	defer w.Destroy()
+	return l
+}
 
+func signalHandle(address string) {
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc,
 		syscall.SIGINT,
@@ -84,46 +171,4 @@ start:
 			os.Exit(0)
 		}
 	}()
-
-	go func() {
-		for {
-			conn, err := l.Accept()
-			if err != nil {
-				log.Printf("accept error %+v", err)
-			}
-			conn.Close()
-
-			clipboardContent, err := clipboard.ReadAll()
-			if err != nil {
-				log.Printf("[err] clipboard readall fail: %+v\n", err)
-				continue
-			}
-			log.Printf("got clipboard text: [%s]\n", clipboardContent)
-
-			cbContent := strings.Replace(clipboardContent, "\n", "\\n", -1)
-			cbContent = strings.Replace(cbContent, "\"", "\\\"", -1)
-
-			w.Dispatch(func() {
-				w.Eval(`inputValue(document.getElementsByClassName('lmt__source_textarea')[0],"` + cbContent + `")`)
-			})
-		}
-	}()
-
-	w.SetTitle("Deepl-linux")
-	w.SetSize(width, height, webview.HintNone)
-	w.Navigate("https://www.deepl.com/translator")
-	w.Eval(js)
-
-	w.Run()
 }
-
-var js = `const inputValue = function (dom, st) {
-  var evt = new InputEvent('input', {
-    inputType: 'insertText',
-    data: st,
-    dataTransfer: null,
-    isComposing: false
-  });
-  dom.value = st;
-  dom.dispatchEvent(evt);
-}`
