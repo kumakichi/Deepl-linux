@@ -10,14 +10,20 @@
 ** install dependencies
 
    #+BEGIN_SRC sh
-     sudo apt install libwebkit2gtk-4.0-dev xsel xdotool
+     sudo apt install libwebkit2gtk-4.0-dev xsel xdotool golang
    #+END_SRC
 
 + xsel
+
   clipboard needs it
 
 + xdotool
+
   active this app when do translating work in other apps
+
++ golang
+
+  Go programming language compiler
 
 ** build
    #+BEGIN_SRC sh
