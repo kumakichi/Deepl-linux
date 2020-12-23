@@ -23,7 +23,14 @@
 
 + golang
 
-  Go programming language compiler
+  Go programming language compiler, *1.14 or higher is needed*
+
+  Check it:
+  #+begin_src go
+    go version
+  #+end_src
+
+  You can download [[https://golang.org/dl/][prebuilt binaries]] from [[https://golang.org][https://golang.org]]
 
 ** build
    #+BEGIN_SRC sh
