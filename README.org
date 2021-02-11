@@ -1,3 +1,9 @@
+* DEPRECATION NOTICE
+
+  Go webview is not very suitable for desktop apps, so I reimplement this repo with [[https://www.electronjs.org/][Electron]].
+
+  See [[https://github.com/kumakichi/Deepl-linux-electron][this repo]].
+
 * About
   A client for [[https://www.deepl.com/translator][deepl]] in Linux, using [[https://github.com/zserge/webview][webview]].
 
